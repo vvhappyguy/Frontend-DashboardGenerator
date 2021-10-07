@@ -5,6 +5,7 @@
 // setting the `_lights` field, and off again when "TURN LIGHT OFF" is tapped.
 
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 void main() => runApp(const MyApp());
 
@@ -34,13 +35,16 @@ class MyStatefulWidget extends StatefulWidget {
 /// This is the private State class that goes with MyStatefulWidget.
 class _MyStatefulWidgetState extends State<MyStatefulWidget> {
   bool _lightIsOn = false;
-  // String _imagePath =
-  //     'https://flutter.github.io/assets-for-api-docs/assets/widgets/owl.jpg';
   String _imagePath =
-      'https://studfile.net/html/26305/112/html_uKxp4MGMu5.4RBD/img-yRhNQd.png';
+      'https://flutter.github.io/assets-for-api-docs/assets/widgets/owl.jpg';
+  // String _imagePath =
+  //     'https://studfile.net/html/26305/112/html_uKxp4MGMu5.4RBD/img-yRhNQd.png';
   final myController = TextEditingController();
   double x = 0.0;
   double y = 0.0;
+  double imageWidth = 400;
+  double imageHeight = 300;
+  final ImagePicker _picker = ImagePicker();
 
   void _updateLocation(PointerEvent details) {
     setState(() {
@@ -64,7 +68,8 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
             },
             child: Container(
               child: Image(
-                width: _lightIsOn ? 100 : 700,
+                width: imageWidth,
+                height: imageHeight,
                 image: NetworkImage(_imagePath),
               ),
             ),
@@ -77,9 +82,13 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
         ),
         persistentFooterButtons: [
           Text('x:' + x.toString() + ' y:' + y.toString()),
+          Text('width:' +
+              imageWidth.toString() +
+              ' height:' +
+              imageHeight.toString()),
           TextButton.icon(
-              icon: Icon(Icons.add),
-              label: Text("1"),
+              icon: Icon(Icons.update),
+              label: Text("0"),
               onPressed: () {
                 setState(() {
                   _imagePath = myController.text;
@@ -87,12 +96,21 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
                 });
               }),
           TextButton.icon(
+              icon: Icon(Icons.add),
+              label: Text("1"),
+              onPressed: () {
+                setState(() {
+                  imageWidth *= 1.5;
+                  imageHeight *= 1.5;
+                });
+              }),
+          TextButton.icon(
               icon: Icon(Icons.remove),
               label: Text("2"),
               onPressed: () {
                 setState(() {
-                  _imagePath = '';
-                  _lightIsOn = !_lightIsOn;
+                  imageWidth /= 1.5;
+                  imageHeight /= 1.5;
                 });
               }),
         ]);
