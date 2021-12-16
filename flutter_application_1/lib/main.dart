@@ -7,6 +7,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
+import 'dart:ui' as ui;
+import 'dart:async';
 
 void main() => runApp(const MyApp());
 
@@ -25,12 +27,40 @@ class MyApp extends StatelessWidget {
   }
 }
 
+GlobalKey key1 = GlobalKey();
+
 /// This is the stateful widget that the main application instantiates.
 class MyStatefulWidget extends StatefulWidget {
   const MyStatefulWidget({Key? key}) : super(key: key);
 
   @override
   State<MyStatefulWidget> createState() => _MyStatefulWidgetState();
+}
+
+class OpenPainter extends CustomPainter {
+  List<Offset> list = [];
+  OpenPainter(List<Offset> _list) {
+    this.list = _list;
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    var paintO = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..color = Color.fromRGBO(0, 1, 0, 1)
+      ..isAntiAlias = true;
+    for (var i = 0; i < list.length; i += 2) {
+      var point1 = list[i];
+      if (list.length == i + 1) break;
+      var point2 = list[i + 1];
+      //canvas.drawLine(point1, point2, paintO);
+      canvas.drawRect(Rect.fromPoints(point1, point2), paintO);
+    }
+  }
+
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => false;
 }
 
 /// This is the private State class that goes with MyStatefulWidget.
@@ -41,11 +71,14 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
   double x = 0.0;
   double y = 0.0;
 
-  XFile? image = XFile("");
+  XFile? imageXF = XFile("");
+  bool isPicked = false;
 
   Image? imageI;
-  double? imageHeight = 0;
-  double? imageWidth = 0;
+  int? imageHeight = 0;
+  int? imageWidth = 0;
+
+  List<Offset> points = [];
 
   void _updateLocation(PointerEvent details) {
     setState(() {
@@ -54,38 +87,46 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
     });
   }
 
-  // Future<ImageInfo> getImageInfo(Image? img) async {
-  //   final c = new Completer<ImageInfo>();
-  //   img?.image
-  //       .resolve(new ImageConfiguration())
-  //       .addListener(new ImageStreamListener((ImageInfo i, bool _) {
-  //     c.complete(i);
-  //   }));
-  //   return c.future;
-  // }
+  Future<ui.Image> getImageInfo() async {
+    Completer<ui.Image> completer = new Completer<ui.Image>();
+    new NetworkImage(imageXF!.path)
+        .resolve(new ImageConfiguration())
+        .addListener(ImageStreamListener((ImageInfo info, bool _) {
+      completer.complete(info.image);
+    }));
+    return completer.future;
+  }
 
   @override
   Widget build(BuildContext context) {
-    // imageI = Image.network(image.path);
-    // Completer<ui.Image> completer = new Completer<ui.Image>();
-    // imageI?.image
-    //     .resolve(new ImageConfiguration())
-    //     .addListener(new ImageStreamListener((ImageInfo image, bool _) {
-    //   completer.complete(image.image);
-    // }));
-
     return Scaffold(
         appBar: AppBar(
           title: Text('Flutter ' + _lightIsOn.toString()),
         ),
         body: Center(
-            child: MouseRegion(
-                onHover: _updateLocation,
-                child: GestureDetector(
-                    onTap: () {
-                      print('x:' + x.toString() + ' y:' + y.toString());
-                    },
-                    child: imageI))),
+          child: MouseRegion(
+              onHover: _updateLocation,
+              child: GestureDetector(
+                  onTap: () {
+                    print('x:' + x.toString() + ' y:' + y.toString());
+                    print(key1.currentContext!.size);
+                    points.add(Offset(x, y));
+                  },
+                  child: Stack(
+                    children: [
+                      Container(
+                        child: imageI,
+                        key: key1,
+                      ),
+                      Container(
+                          height: imageHeight?.toDouble(),
+                          width: imageWidth?.toDouble(),
+                          child: CustomPaint(
+                            painter: OpenPainter(points),
+                          ))
+                    ],
+                  ))),
+        ),
         persistentFooterButtons: [
           Text('x:' + x.toString() + ' y:' + y.toString()),
           Text('width:' +
@@ -96,19 +137,37 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
               icon: Icon(Icons.image),
               label: Text("Pick Image"),
               onPressed: () async {
-                image = await _picker.pickImage(source: ImageSource.gallery);
+                imageXF = await _picker.pickImage(source: ImageSource.gallery);
                 setState(() {
-                  imageI = Image.network(image!.path);
+                  imageI = Image.network(imageXF!.path);
+                  isPicked = true;
                 });
               }),
           TextButton.icon(
               icon: Icon(Icons.update),
               label: Text("0"),
               onPressed: () {
-                setState(() {
-                  _lightIsOn = !_lightIsOn;
+                points.forEach((element) {
+                  print('Offset:' + element.toString());
                 });
               }),
+          Container(
+              child: isPicked
+                  ? new FutureBuilder<ui.Image>(
+                      future: getImageInfo(),
+                      builder: (BuildContext context,
+                          AsyncSnapshot<ui.Image> snapshot) {
+                        if (snapshot.hasData) {
+                          ui.Image? image = snapshot.data;
+                          imageHeight = image?.height;
+                          imageWidth = image?.width;
+
+                          return new Text('${image?.width}x${image?.height}');
+                        } else {
+                          return new Text('Loading...');
+                        }
+                      })
+                  : Text('No image'))
         ]);
   }
 }
