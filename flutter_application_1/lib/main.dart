@@ -4,6 +4,8 @@
 // turns the light bulb yellow when the "TURN LIGHT ON" button is tapped by
 // setting the `_lights` field, and off again when "TURN LIGHT OFF" is tapped.
 
+import 'dart:html';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
@@ -60,12 +62,11 @@ class OpenPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(CustomPainter oldDelegate) => false;
+  bool shouldRepaint(CustomPainter oldDelegate) => true;
 }
 
 /// This is the private State class that goes with MyStatefulWidget.
 class _MyStatefulWidgetState extends State<MyStatefulWidget> {
-  bool _lightIsOn = false;
   final ImagePicker _picker = ImagePicker();
   final myController = TextEditingController();
   double x = 0.0;
@@ -77,6 +78,8 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
   Image? imageI;
   int? imageHeight = 0;
   int? imageWidth = 0;
+
+  double kToolbarHeight = 100;
 
   List<Offset> points = [];
 
@@ -101,31 +104,33 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
   Widget build(BuildContext context) {
     return Scaffold(
         appBar: AppBar(
-          title: Text('Flutter ' + _lightIsOn.toString()),
+          title: Text('Dashboard Generator'),
+          toolbarHeight: kToolbarHeight,
         ),
         body: Center(
-          child: MouseRegion(
-              onHover: _updateLocation,
-              child: GestureDetector(
-                  onTap: () {
-                    print('x:' + x.toString() + ' y:' + y.toString());
-                    print(key1.currentContext!.size);
-                    points.add(Offset(x, y));
-                  },
-                  child: Stack(
-                    children: [
-                      Container(
-                        child: imageI,
-                        key: key1,
-                      ),
-                      Container(
-                          height: imageHeight?.toDouble(),
-                          width: imageWidth?.toDouble(),
-                          child: CustomPaint(
-                            painter: OpenPainter(points),
-                          ))
-                    ],
-                  ))),
+          child: Stack(children: [
+            Container(
+              child: imageI,
+              key: key1,
+            ),
+            Container(
+                height: imageHeight?.toDouble(),
+                width: imageWidth?.toDouble(),
+                child: CustomPaint(
+                  painter: OpenPainter(points),
+                  willChange: true,
+                )),
+            Container(
+                child: MouseRegion(
+                    onHover: _updateLocation,
+                    child: GestureDetector(
+                      onTap: () {
+                        print('x:' + x.toString() + ' y:' + y.toString());
+                        print(key1.currentContext!.size);
+                        points.add(Offset(x, y - kToolbarHeight));
+                      },
+                    )))
+          ]),
         ),
         persistentFooterButtons: [
           Text('x:' + x.toString() + ' y:' + y.toString()),
@@ -187,3 +192,19 @@ x: int - отступ по Х относительно левого верхне
 y: int - отступ по Y относительно левого верхнего угла
 label: string - название элемента
 */
+
+// {
+//   path: "imagePath",
+//   width: 100,
+//   height: 100,
+//   Elements:[
+//     {
+//       label : "switcher",
+//       x: 10,
+//       y: 10,
+//       height: 10,
+//       width: 10
+//     },
+//     ...
+//   ]
+// }
