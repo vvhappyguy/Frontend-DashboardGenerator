@@ -1,14 +1,7 @@
-/// Flutter code sample for GestureDetector
-
-// This example contains a black light bulb wrapped in a [GestureDetector]. It
-// turns the light bulb yellow when the "TURN LIGHT ON" button is tapped by
-// setting the `_lights` field, and off again when "TURN LIGHT OFF" is tapped.
-
-import 'dart:html';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
+import 'dart:convert';
 import 'dart:ui' as ui;
 import 'dart:async';
 
@@ -41,8 +34,10 @@ class MyStatefulWidget extends StatefulWidget {
 
 class OpenPainter extends CustomPainter {
   List<Offset> list = [];
-  OpenPainter(List<Offset> _list) {
+  Offset tmpPoint = Offset(0, 0);
+  OpenPainter(List<Offset> _list, Offset _tmpPoint) {
     this.list = _list;
+    this.tmpPoint = _tmpPoint;
   }
 
   @override
@@ -50,19 +45,120 @@ class OpenPainter extends CustomPainter {
     var paintO = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3
-      ..color = Color.fromRGBO(0, 1, 0, 1)
+      ..color = Color.fromRGBO(255, 0, 0, 0.75)
       ..isAntiAlias = true;
+    if (tmpPoint != Offset(0, 0)) {
+      canvas.drawRect(
+          Rect.fromPoints(tmpPoint, Offset(tmpPoint.dx + 2, tmpPoint.dy + 2)),
+          paintO);
+    }
     for (var i = 0; i < list.length; i += 2) {
       var point1 = list[i];
-      if (list.length == i + 1) break;
-      var point2 = list[i + 1];
-      //canvas.drawLine(point1, point2, paintO);
-      canvas.drawRect(Rect.fromPoints(point1, point2), paintO);
+      if (list.length != i + 1) {
+        var point2 = list[i + 1];
+        //canvas.drawLine(point1, point2, paintO);
+        canvas.drawRect(Rect.fromPoints(point1, point2), paintO);
+      } else {}
     }
   }
 
   @override
   bool shouldRepaint(CustomPainter oldDelegate) => true;
+}
+
+/*
+Panels
+id: int unique
+path: string - локальный путь до картинки
+width: int - ширина картинки
+height: int - высота картинки
+
+Elements
+id: int unique
+panel_id: int from Panels
+width: int - ширина элемента
+height:  int - высота элемента
+x: int - отступ по Х относительно левого верхнего угла
+y: int - отступ по Y относительно левого верхнего угла
+label: string - название элемента
+*/
+
+// {
+//   path: "imagePath",
+//   width: 100,
+//   height: 100,
+//   elements:[
+//     {
+//       label : "switcher",
+//       x: 10,
+//       y: 10,
+//       height: 10,
+//       width: 10
+//     },
+//     ...
+//   ]
+// }
+
+class Element {
+  final String name;
+  final double x0;
+  final double y0;
+  final double x1;
+  final double y1;
+
+  Element(this.name, this.x0, this.y0, this.x1, this.y1);
+
+  Element.fromJson(Map<String, dynamic> json)
+      : name = json['label'],
+        x0 = json['x0'],
+        y0 = json['y0'],
+        x1 = json['x1'],
+        y1 = json['y1'];
+
+  Map<String, dynamic> toJson() => {
+        'label': name,
+        'x0': x0,
+        'y0': y0,
+        'x1': x1,
+        'y1': y1,
+      };
+
+  Map<Offset, Offset> toOffset() {
+    Map<Offset, Offset> ret = {};
+    ret.addAll({Offset(x0, y0): Offset(x1, y1)});
+    return ret;
+  }
+}
+
+class Information {
+  String path;
+  double width;
+  double height;
+  List<Element> elements;
+
+  Information(this.path, this.width, this.height, this.elements);
+
+  Information.fromJson(Map<String, dynamic> json)
+      : path = json['path'],
+        width = json['width'],
+        height = json['height'],
+        elements = json['elements'];
+
+  Map<String, dynamic> toJson() => {
+        'path': path,
+        'width': width,
+        'height': height,
+        'elements': json.encode(elements)
+      };
+
+  List<Offset> toListOffset() {
+    List<Offset> ret = [];
+    elements.forEach((element) => {
+          ret.addAll(
+              [Offset(element.x0, element.y0), Offset(element.x1, element.y1)])
+        });
+    return ret;
+  }
 }
 
 /// This is the private State class that goes with MyStatefulWidget.
@@ -78,10 +174,13 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
   Image? imageI;
   int? imageHeight = 0;
   int? imageWidth = 0;
+  int counter = 0;
 
   double kToolbarHeight = 100;
 
-  List<Offset> points = [];
+  bool getJSONst = false;
+  Information info = Information("path", 0, 0, []);
+  Offset tmpPoint = Offset(0, 0);
 
   void _updateLocation(PointerEvent details) {
     setState(() {
@@ -114,10 +213,10 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
               key: key1,
             ),
             Container(
-                height: imageHeight?.toDouble(),
-                width: imageWidth?.toDouble(),
+                height: isPicked ? imageI?.height?.toDouble() : 0,
+                width: isPicked ? imageI?.width?.toDouble() : 0,
                 child: CustomPaint(
-                  painter: OpenPainter(points),
+                  painter: OpenPainter(info.toListOffset(), tmpPoint),
                   willChange: true,
                 )),
             Container(
@@ -127,9 +226,24 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
                       onTap: () {
                         print('x:' + x.toString() + ' y:' + y.toString());
                         print(key1.currentContext!.size);
-                        points.add(Offset(x, y - kToolbarHeight));
+                        if (tmpPoint != Offset(0, 0)) {
+                          info.elements.add(Element((counter++).toString(), x,
+                              y - kToolbarHeight, tmpPoint.dx, tmpPoint.dy));
+                          tmpPoint = Offset(0, 0);
+                        } else {
+                          tmpPoint = Offset(x, y - kToolbarHeight);
+                        }
+                        print("tmp" + tmpPoint.toString());
                       },
-                    )))
+                    ))),
+            Container(
+                child: getJSONst
+                    ? Container(
+                        color: Colors.green,
+                        width: 500,
+                        height: 500,
+                        child: Text(info.toJson().toString()))
+                    : null)
           ]),
         ),
         persistentFooterButtons: [
@@ -139,23 +253,26 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
               ' height:' +
               (imageI == null ? "0" : (imageHeight.toString()))),
           TextButton.icon(
+            icon: Icon(Icons.texture),
+            label: Text("Get JSON"),
+            onPressed: () async {
+              getJSONst = !getJSONst;
+            },
+          ),
+          TextButton.icon(
               icon: Icon(Icons.image),
               label: Text("Pick Image"),
               onPressed: () async {
                 imageXF = await _picker.pickImage(source: ImageSource.gallery);
                 setState(() {
                   imageI = Image.network(imageXF!.path);
+                  info.path = imageXF!.path;
+                  info.elements = [];
                   isPicked = true;
                 });
               }),
           TextButton.icon(
-              icon: Icon(Icons.update),
-              label: Text("0"),
-              onPressed: () {
-                points.forEach((element) {
-                  print('Offset:' + element.toString());
-                });
-              }),
+              icon: Icon(Icons.update), label: Text("0"), onPressed: () {}),
           Container(
               child: isPicked
                   ? new FutureBuilder<ui.Image>(
@@ -166,8 +283,9 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
                           ui.Image? image = snapshot.data;
                           imageHeight = image?.height;
                           imageWidth = image?.width;
-
-                          return new Text('${image?.width}x${image?.height}');
+                          info.width = image!.width.toDouble();
+                          info.height = image.height.toDouble();
+                          return new Text('${image.width}x${image.height}');
                         } else {
                           return new Text('Loading...');
                         }
@@ -176,35 +294,3 @@ class _MyStatefulWidgetState extends State<MyStatefulWidget> {
         ]);
   }
 }
-/*
-Panels
-id: int unique
-path: string - локальный путь до картинки
-width: int - ширина картинки
-height: int - высота картинки
-
-Elements
-id: int unique
-panel_id: int from Panels
-width: int - ширина элемента
-height:  int - высота элемента
-x: int - отступ по Х относительно левого верхнего угла
-y: int - отступ по Y относительно левого верхнего угла
-label: string - название элемента
-*/
-
-// {
-//   path: "imagePath",
-//   width: 100,
-//   height: 100,
-//   Elements:[
-//     {
-//       label : "switcher",
-//       x: 10,
-//       y: 10,
-//       height: 10,
-//       width: 10
-//     },
-//     ...
-//   ]
-// }
